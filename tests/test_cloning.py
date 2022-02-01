@@ -12,7 +12,7 @@ def test_cloning(
     keeper,
     rewards,
     chain,
-    Strategy0xDAOStaker,
+    GenericMasterChefStrategy,
     guardian,
     amount,
     emissionToken,
@@ -69,7 +69,7 @@ def test_cloning(
             True,
         {"from": gov},
     )
-    newStrategy = Strategy0xDAOStaker.at(tx.return_value)
+    newStrategy = GenericMasterChefStrategy.at(tx.return_value)
 
     # Shouldn't be able to call initialize again
     with brownie.reverts():

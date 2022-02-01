@@ -5,7 +5,7 @@ import math
 
 
 def test_migration(
-    Strategy0xDAOStaker,
+    GenericMasterChefStrategy,
     gov,
     token,
     vault,
@@ -34,7 +34,7 @@ def test_migration(
 
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        Strategy0xDAOStaker,
+        GenericMasterChefStrategy,
         vault,
         pid,
         strategy_name,

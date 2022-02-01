@@ -17,7 +17,7 @@ def pid():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="module")
 def strategy_name():
-    strategy_name = "Strategy0xDAOStaker"
+    strategy_name = "Strategy"
     yield strategy_name
 
 
@@ -201,7 +201,7 @@ def masterchef(
 # replace the first value with the name of your strategy
 @pytest.fixture(scope="function")
 def strategy(
-    Strategy0xDAOStaker,
+    GenericMasterChefStrategy,
     strategist,
     keeper,
     vault,
@@ -219,7 +219,7 @@ def strategy(
 ):
     # make sure to include all constructor parameters needed here
     strategy = strategist.deploy(
-        Strategy0xDAOStaker,
+        GenericMasterChefStrategy,
         vault,
         pid,
         strategy_name,

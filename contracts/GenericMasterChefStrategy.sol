@@ -72,7 +72,7 @@ interface ChefLike {
         returns (uint256 amount, uint256 rewardDebt);
 }
 
-contract Strategy0xDAOStaker is BaseStrategy {
+contract GenericMasterChefStrategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -170,7 +170,7 @@ contract Strategy0xDAOStaker is BaseStrategy {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        Strategy0xDAOStaker(newStrategy).initialize(
+        GenericMasterChefStrategy(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
