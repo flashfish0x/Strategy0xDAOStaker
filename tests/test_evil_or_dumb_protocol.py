@@ -190,7 +190,7 @@ def test_protocol_dumb_masterchef_dev(
     chain.mine(1)
 
     # try and add a duplicate pool to bork the contract. since our strategist deployed it, he is the owner.
-    owner = Contract("0xa96D2F0978E317e7a97aDFf7b5A76F4600916021")
+    owner = Contract(masterchef.operator())
     with brownie.reverts():
         masterchef.add(69, token, {"from": owner})
     with brownie.reverts():

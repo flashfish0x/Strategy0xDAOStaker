@@ -19,6 +19,8 @@ def test_migration(
     amount,
     strategy_name,
     masterchef,
+    emissionToken,
+    wftm,
     pid,
 ):
 
@@ -36,6 +38,10 @@ def test_migration(
         vault,
         pid,
         strategy_name,
+        masterchef,
+        emissionToken,
+        wftm,
+        True
     )
     total_old = strategy.estimatedTotalAssets()
 

@@ -15,7 +15,9 @@ def test_odds_and_ends(
     strategist_ms,
     pid,
     masterchef,
+    emissionToken,
     Strategy0xDAOStaker,
+    wftm,
     amount,
     strategy_name,
 ):
@@ -56,6 +58,10 @@ def test_odds_and_ends(
         vault,
         pid,
         strategy_name,
+        masterchef,
+        emissionToken,
+        wftm,
+        True
     )
     total_old = strategy.estimatedTotalAssets()
 
@@ -158,6 +164,8 @@ def test_odds_and_ends_migration(
     amount,
     strategy_name,
     masterchef,
+    emissionToken,
+    wftm,
     pid,
 ):
 
@@ -175,6 +183,10 @@ def test_odds_and_ends_migration(
         vault,
         pid,
         strategy_name,
+        masterchef,
+        emissionToken,
+        wftm,
+        True
     )
     total_old = strategy.estimatedTotalAssets()
 

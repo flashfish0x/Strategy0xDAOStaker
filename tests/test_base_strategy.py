@@ -23,7 +23,7 @@ def test_base_strategy(
     newWhale = token.balanceOf(whale)
 
     to_view = []
-    for i in range(6):
+    for i in range(3):
         addy = masterchef.poolInfo(i)[0]
         to_view.append(addy)
     print("These are our addresses", to_view)

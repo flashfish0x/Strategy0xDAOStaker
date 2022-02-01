@@ -89,7 +89,7 @@ def amount(token, pid):  # use today's exchange rates to have similar $$ amounts
     elif pid == 1:  # WETH
         amount = 5000 * (10 ** token.decimals())
     elif pid == 0:  # WFTM
-        amount = 500_000 * (10 ** token.decimals())
+        amount = 250_000 * (10 ** token.decimals())
     else:  # stables
         amount = 15000000 * (10 ** token.decimals())
     yield amount

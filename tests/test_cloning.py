@@ -15,6 +15,8 @@ def test_cloning(
     Strategy0xDAOStaker,
     guardian,
     amount,
+    emissionToken,
+    wftm,
     pid,
     masterchef,
     strategy_name,
@@ -28,6 +30,11 @@ def test_cloning(
             keeper,
             pid,
             strategy_name,
+            masterchef,
+            emissionToken,
+            wftm,
+            True,
+
             {"from": gov},
         )
 
@@ -41,6 +48,10 @@ def test_cloning(
             keeper,
             wrong_pid,
             strategy_name,
+            masterchef,
+            emissionToken,
+            wftm,
+            True,
             {"from": gov},
         )
 
@@ -52,6 +63,10 @@ def test_cloning(
         keeper,
         pid,
         strategy_name,
+        masterchef,
+            emissionToken,
+            wftm,
+            True,
         {"from": gov},
     )
     newStrategy = Strategy0xDAOStaker.at(tx.return_value)
@@ -65,6 +80,10 @@ def test_cloning(
             keeper,
             pid,
             strategy_name,
+            masterchef,
+            emissionToken,
+            wftm,
+            True,
             {"from": gov},
         )
 
@@ -77,6 +96,10 @@ def test_cloning(
             keeper,
             pid,
             strategy_name,
+            masterchef,
+            emissionToken,
+            wftm,
+            True,
             {"from": gov},
         )
 
