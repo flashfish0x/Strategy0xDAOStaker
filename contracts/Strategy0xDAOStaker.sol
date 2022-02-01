@@ -202,7 +202,7 @@ contract Strategy0xDAOStaker is BaseStrategy {
     // this is called by our original strategy, as well as any clones
     function _initializeStrat(uint256 _pid, string memory _name, address _masterchef, address _emissionToken, address _poolTwoSecondToken, bool _autoSell) internal {
 
-        masterchef = _masterchef;
+        masterchef = ChefLike(_masterchef);
         emissionToken = IERC20(_emissionToken);
         poolTwoSecondToken = IERC20(_poolTwoSecondToken);
         // initialize variables
@@ -228,6 +228,7 @@ contract Strategy0xDAOStaker is BaseStrategy {
         poolTwoSecondToken.approve(spookyRouter, type(uint256).max);
         emissionToken.approve(spiritRouter, type(uint256).max);
         poolTwoSecondToken.approve(spiritRouter, type(uint256).max);
+        want.approve(address(masterchef), type(uint256).max);
     }
 
     /* ========== VIEWS ========== */
@@ -510,14 +511,14 @@ contract Strategy0xDAOStaker is BaseStrategy {
         maxSell = _maxSell;
     }
 
-    function setUseSpiritOne(uint256 _useSpirit)
+    function setUseSpiritOne(bool _useSpirit)
         external
         onlyEmergencyAuthorized
     {
         useSpiritPartOne = _useSpirit;
     }
 
-    function setUseSpiritTwo(uint256 _useSpirit)
+    function setUseSpiritTwo(bool _useSpirit)
         external
         onlyEmergencyAuthorized
     {

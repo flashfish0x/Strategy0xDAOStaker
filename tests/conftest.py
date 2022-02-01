@@ -7,10 +7,10 @@ def isolation(fn_isolation):
     pass
 
 
-# this is the pool ID that we are staking for. 1-6, wftm-mim
+# this is the pool ID that we are staking for. 0-3, wftm-mim
 @pytest.fixture(scope="module")
 def pid():
-    pid = 4
+    pid = 0
     yield pid
 
 
@@ -29,6 +29,10 @@ def wftm():
 @pytest.fixture(scope="module")
 def weth():
     yield Contract("0x74b23882a30290451A17c44f4F05243b6b58C76d")
+
+@pytest.fixture(scope="module")
+def emissionToken():
+    yield Contract("0x112dF7E3b4B7Ab424F07319D4E92F41e6608c48B")
 
 
 @pytest.fixture(scope="module")
@@ -55,18 +59,12 @@ def mim():
 @pytest.fixture(scope="module")
 def token(pid, wftm, weth, wbtc, dai, usdc, mim):
     # this should be the address of the ERC-20 used by the strategy/vault
-    if pid == 1:
+    if pid == 0:
         token = wftm
-    elif pid == 2:
+    elif pid == 1:
         token = weth
-    elif pid == 3:
-        token = wbtc
-    elif pid == 4:
+    elif pid == 2:
         token = usdc
-    elif pid == 5:
-        token = dai
-    elif pid == 6:
-        token = mim
     yield token
 
 
@@ -91,7 +89,7 @@ def amount(token, pid):  # use today's exchange rates to have similar $$ amounts
     elif pid == 1:  # WETH
         amount = 5000 * (10 ** token.decimals())
     elif pid == 0:  # WFTM
-        amount = 5769230 * (10 ** token.decimals())
+        amount = 500_000 * (10 ** token.decimals())
     else:  # stables
         amount = 15000000 * (10 ** token.decimals())
     yield amount
@@ -188,33 +186,15 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
 #     yield vault
 
 
-# deploy the masterchef from 0xDAO's repo
+#  masterchef from ripae
 @pytest.fixture(scope="function")
 def masterchef(
-    MasterChef,
-    strategist,
-    keeper,
-    vault,
-    gov,
-    chain,
-    reward_token,
-    wftm,
-    weth,
-    wbtc,
-    dai,
-    usdc,
-    mim,
-    accounts,
+    Contract
 ):
     # make sure to include all constructor parameters needed here
 
     # transfer ownership of the token to our masterchef
-    masterchef = Contract("0xa7821C3e9fC1bF961e280510c471031120716c3d")
-    chain.sleep(1)
-    chain.mine(1)
-
-    # sleep a day so we're into the farming time
-    chain.sleep(86400)
+    masterchef = Contract("0x42D5Ef67B686934325b100EF056d4bFe2f673f8C")
     yield masterchef
 
 
@@ -226,6 +206,8 @@ def strategy(
     keeper,
     vault,
     gov,
+    emissionToken,
+    wftm,
     guardian,
     token,
     healthCheck,
@@ -241,6 +223,10 @@ def strategy(
         vault,
         pid,
         strategy_name,
+        masterchef,
+        emissionToken,
+        wftm,
+        True
     )
     strategy.setKeeper(keeper, {"from": gov})
     # set our management fee to zero so it doesn't mess with our profit checking
