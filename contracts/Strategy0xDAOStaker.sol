@@ -79,13 +79,14 @@ contract Strategy0xDAOStaker is BaseStrategy {
 
     /* ========== STATE VARIABLES ========== */
 
-    ChefLike public constant masterchef =
-        ChefLike(0xa7821C3e9fC1bF961e280510c471031120716c3d);
-    IERC20 public constant emissionToken =
-        IERC20(0xc165d941481e68696f43EE6E99BFB2B23E0E3114); // the token we receive for staking, 0XD
+    ChefLike public masterchef;
+    IERC20 public emissionToken;
+    IERC20 public poolTwoSecondToken;
 
     // swap stuff
     address internal constant spookyRouter =
+        0xF491e7B69E4244ad4002BC14e878a34207E38c29;
+    address internal constant spiritRouter =
         0xF491e7B69E4244ad4002BC14e878a34207E38c29;
     ICurveFi internal constant mimPool =
         ICurveFi(0x2dd7C9371965472E5A5fD28fbE165007c61439E1); // Curve's MIM-USDC-USDT pool
@@ -106,6 +107,12 @@ contract Strategy0xDAOStaker is BaseStrategy {
     IERC20 internal constant mim =
         IERC20(0x82f0B8B456c1A451378467398982d4834b6829c1);
 
+        bool public autoSell;
+        uint256 public maxSell; //set to zero for unlimited
+
+        bool public useSpiritPartOne;
+        bool public useSpiritPartTwo;
+
     uint256 public pid; // the pool ID we are staking for
 
     string internal stratName; // we use this for our strategy's name on cloning
@@ -119,9 +126,13 @@ contract Strategy0xDAOStaker is BaseStrategy {
     constructor(
         address _vault,
         uint256 _pid,
-        string memory _name
+        string memory _name,
+        address _masterchef,
+        address _emissionToken,
+        address _poolTwoSecondToken,
+        bool _autoSell
     ) public BaseStrategy(_vault) {
-        _initializeStrat(_pid, _name);
+        _initializeStrat(_pid, _name, _masterchef, _emissionToken, _poolTwoSecondToken, _autoSell);
     }
 
     /* ========== CLONING ========== */
@@ -135,7 +146,11 @@ contract Strategy0xDAOStaker is BaseStrategy {
         address _rewards,
         address _keeper,
         uint256 _pid,
-        string memory _name
+        string memory _name,
+        address _masterchef,
+        address _emissionToken,
+        address _poolTwoSecondToken,
+        bool _autoSell
     ) external returns (address newStrategy) {
         require(isOriginal);
         // Copied from https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
@@ -161,7 +176,7 @@ contract Strategy0xDAOStaker is BaseStrategy {
             _rewards,
             _keeper,
             _pid,
-            _name
+            _name, _masterchef, _emissionToken, _poolTwoSecondToken,  _autoSell
         );
 
         emit Cloned(newStrategy);
@@ -174,20 +189,30 @@ contract Strategy0xDAOStaker is BaseStrategy {
         address _rewards,
         address _keeper,
         uint256 _pid,
-        string memory _name
+        string memory _name,
+        address _masterchef,
+        address _emissionToken,
+        address _poolTwoSecondToken,
+        bool _autoSell
     ) public {
         _initialize(_vault, _strategist, _rewards, _keeper);
-        _initializeStrat(_pid, _name);
+        _initializeStrat(_pid, _name, _masterchef, _emissionToken, _poolTwoSecondToken, _autoSell);
     }
 
     // this is called by our original strategy, as well as any clones
-    function _initializeStrat(uint256 _pid, string memory _name) internal {
+    function _initializeStrat(uint256 _pid, string memory _name, address _masterchef, address _emissionToken, address _poolTwoSecondToken, bool _autoSell) internal {
+
+        masterchef = _masterchef;
+        emissionToken = IERC20(_emissionToken);
+        poolTwoSecondToken = IERC20(_poolTwoSecondToken);
         // initialize variables
         maxReportDelay = 43200; // 1/2 day in seconds, if we hit this then harvestTrigger = True
         healthCheck = address(0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0); // Fantom common health check
 
         // set our strategy's name
         stratName = _name;
+
+        autoSell = _autoSell;
 
         // make sure that we used the correct pid
         pid = _pid;
@@ -198,11 +223,11 @@ contract Strategy0xDAOStaker is BaseStrategy {
         minHarvestCredit = type(uint256).max;
 
         // add approvals on all tokens
-        usdc.approve(spookyRouter, type(uint256).max);
-        usdc.approve(address(mimPool), type(uint256).max);
-        usdc.approve(address(daiPool), type(uint256).max);
-        want.approve(address(masterchef), type(uint256).max);
+        
         emissionToken.approve(spookyRouter, type(uint256).max);
+        poolTwoSecondToken.approve(spookyRouter, type(uint256).max);
+        emissionToken.approve(spiritRouter, type(uint256).max);
+        poolTwoSecondToken.approve(spiritRouter, type(uint256).max);
     }
 
     /* ========== VIEWS ========== */
@@ -242,7 +267,7 @@ contract Strategy0xDAOStaker is BaseStrategy {
 
         // if we have emissionToken to sell, then sell some of it
         uint256 emissionTokenBalance = emissionToken.balanceOf(address(this));
-        if (emissionTokenBalance > 0) {
+        if (emissionTokenBalance > 0 && autoSell) {
             // sell our emissionToken
             _sell(emissionTokenBalance);
         }
@@ -264,7 +289,7 @@ contract Strategy0xDAOStaker is BaseStrategy {
             return (_profit, _loss, _debtPayment);
         }
 
-        if (assets > debt) {
+        if (assets >= debt) {
             _debtPayment = _debtOutstanding;
             _profit = assets - debt;
 
@@ -348,10 +373,14 @@ contract Strategy0xDAOStaker is BaseStrategy {
         }
 
         // send our claimed emissionToken to the new strategy
-        emissionToken.safeTransfer(
-            _newStrategy,
-            emissionToken.balanceOf(address(this))
-        );
+        uint256 emis = emissionToken.balanceOf(address(this));
+        if(emis > 0){
+            emissionToken.safeTransfer(
+                _newStrategy,
+                emis
+            );
+        }
+        
     }
 
     ///@notice Only do this if absolutely necessary; as assets will be withdrawn but rewards won't be claimed.
@@ -359,14 +388,26 @@ contract Strategy0xDAOStaker is BaseStrategy {
         masterchef.emergencyWithdraw(pid);
     }
 
+    function manualSell(uint256 _amount) external onlyEmergencyAuthorized {
+        _sell(_amount);
+    }
+
     // sell from reward token to want
     function _sell(uint256 _amount) internal {
-        // sell our emission token for usdc
+
+        if(maxSell > 0){
+            _amount = Math.min(maxSell, _amount);
+        }
+        
+
+        // sell our emission token for pool two second token
         address[] memory emissionTokenPath = new address[](2);
         emissionTokenPath[0] = address(emissionToken);
-        emissionTokenPath[1] = address(usdc);
+        emissionTokenPath[1] = address(poolTwoSecondToken);
 
-        IUniswapV2Router02(spookyRouter).swapExactTokensForTokens(
+        address router = useSpiritPartOne? spiritRouter: spookyRouter;
+
+        IUniswapV2Router02(router).swapExactTokensForTokens(
             _amount,
             uint256(0),
             emissionTokenPath,
@@ -374,60 +415,23 @@ contract Strategy0xDAOStaker is BaseStrategy {
             block.timestamp
         );
 
-        if (address(want) == address(usdc)) {
+        if (address(want) == address(poolTwoSecondToken)) {
             return;
         }
 
-        // sell our USDC for want
-        uint256 usdcBalance = usdc.balanceOf(address(this));
-        if (address(want) == address(wftm)) {
-            // sell our usdc for want with spooky
-            address[] memory usdcSwapPath = new address[](2);
-            usdcSwapPath[0] = address(usdc);
-            usdcSwapPath[1] = address(want);
+        _amount = poolTwoSecondToken.balanceOf(address(this));
+        router = useSpiritPartOne? spiritRouter: spookyRouter;
+        emissionTokenPath[0] = address(poolTwoSecondToken);
+        emissionTokenPath[1] = address(want);
 
-            IUniswapV2Router02(spookyRouter).swapExactTokensForTokens(
-                usdcBalance,
-                uint256(0),
-                usdcSwapPath,
-                address(this),
-                block.timestamp
-            );
-        } else if (address(want) == address(weth)) {
-            // sell our usdc for want with spooky
-            address[] memory usdcSwapPath = new address[](3);
-            usdcSwapPath[0] = address(usdc);
-            usdcSwapPath[1] = address(wftm);
-            usdcSwapPath[2] = address(weth);
+        IUniswapV2Router02(router).swapExactTokensForTokens(
+            _amount,
+            uint256(0),
+            emissionTokenPath,
+            address(this),
+            block.timestamp
+        );
 
-            IUniswapV2Router02(spookyRouter).swapExactTokensForTokens(
-                usdcBalance,
-                uint256(0),
-                usdcSwapPath,
-                address(this),
-                block.timestamp
-            );
-        } else if (address(want) == address(dai)) {
-            // sell our usdc for want with curve
-            daiPool.exchange_underlying(1, 0, usdcBalance, 0);
-        } else if (address(want) == address(mim)) {
-            // sell our usdc for want with curve
-            mimPool.exchange(2, 0, usdcBalance, 0);
-        } else if (address(want) == address(wbtc)) {
-            // sell our usdc for want with spooky
-            address[] memory usdcSwapPath = new address[](3);
-            usdcSwapPath[0] = address(usdc);
-            usdcSwapPath[1] = address(wftm);
-            usdcSwapPath[2] = address(wbtc);
-
-            IUniswapV2Router02(spookyRouter).swapExactTokensForTokens(
-                usdcBalance,
-                uint256(0),
-                usdcSwapPath,
-                address(this),
-                block.timestamp
-            );
-        }
     }
 
     function protectedTokens()
@@ -488,5 +492,35 @@ contract Strategy0xDAOStaker is BaseStrategy {
         onlyAuthorized
     {
         minHarvestCredit = _minHarvestCredit;
+    }
+
+     ///@notice autosell if pools are liquid enough
+    function setAutoSell(bool _autoSell)
+        external
+        onlyEmergencyAuthorized
+    {
+        autoSell = _autoSell;
+    }
+
+    ///@notice set a max sell for illiquid pools
+    function setMaxSell(uint256 _maxSell)
+        external
+        onlyEmergencyAuthorized
+    {
+        maxSell = _maxSell;
+    }
+
+    function setUseSpiritOne(uint256 _useSpirit)
+        external
+        onlyEmergencyAuthorized
+    {
+        useSpiritPartOne = _useSpirit;
+    }
+
+    function setUseSpiritTwo(uint256 _useSpirit)
+        external
+        onlyEmergencyAuthorized
+    {
+        useSpiritPartTwo = _useSpirit;
     }
 }
