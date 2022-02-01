@@ -409,7 +409,7 @@ contract Strategy0xDAOStaker is BaseStrategy {
             );
         } else if (address(want) == address(dai)) {
             // sell our usdc for want with curve
-            daiPool.exchange_underlying(1, 0, usdcBalance, 0);
+            daiPool.exchange(1, 0, usdcBalance, 0);
         } else if (address(want) == address(mim)) {
             // sell our usdc for want with curve
             mimPool.exchange(2, 0, usdcBalance, 0);
