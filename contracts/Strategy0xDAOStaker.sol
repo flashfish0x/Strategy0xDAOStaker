@@ -421,8 +421,26 @@ contract Strategy0xDAOStaker is BaseStrategy {
         }
 
         _amount = poolTwoSecondToken.balanceOf(address(this));
+
+        if(address(poolTwoSecondToken) != address(wftm)){
+            emissionTokenPath[0] = address(poolTwoSecondToken);
+            emissionTokenPath[1] = address(wftm);
+            IUniswapV2Router02(spookyRouter).swapExactTokensForTokens(
+                _amount,
+                uint256(0),
+                emissionTokenPath,
+                address(this),
+                block.timestamp
+            );
+            if (address(want) == address(wftm)) {
+                return;
+            }
+            _amount = wftm.balanceOf(address(this));
+        }
+        
+
         router = useSpiritPartOne? spiritRouter: spookyRouter;
-        emissionTokenPath[0] = address(poolTwoSecondToken);
+        emissionTokenPath[0] = address(wftm);
         emissionTokenPath[1] = address(want);
 
         IUniswapV2Router02(router).swapExactTokensForTokens(

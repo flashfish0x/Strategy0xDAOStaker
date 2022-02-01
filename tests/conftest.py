@@ -10,7 +10,7 @@ def isolation(fn_isolation):
 # this is the pool ID that we are staking for. 0-3, wftm-mim
 @pytest.fixture(scope="module")
 def pid():
-    pid = 0
+    pid = 2
     yield pid
 
 
@@ -84,14 +84,14 @@ def whale(accounts, pid):
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="module")
 def amount(token, pid):  # use today's exchange rates to have similar $$ amounts
-    if pid == 2:  # WBTC
+    if pid == 4:  # WBTC
         amount = 380 * (10 ** token.decimals())
     elif pid == 1:  # WETH
-        amount = 5000 * (10 ** token.decimals())
+        amount = 50 * (10 ** token.decimals())
     elif pid == 0:  # WFTM
         amount = 250_000 * (10 ** token.decimals())
     else:  # stables
-        amount = 15000000 * (10 ** token.decimals())
+        amount = 1_000_000 * (10 ** token.decimals())
     yield amount
 
 
