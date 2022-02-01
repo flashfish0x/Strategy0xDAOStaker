@@ -16,6 +16,7 @@ def test_protocol_drains_balance(
     pid,
     amount,
     masterchef,
+    xboo
 ):
     ## deposit to the vault after approving.
     startingWhale = token.balanceOf(whale)

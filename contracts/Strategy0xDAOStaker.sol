@@ -432,7 +432,6 @@ contract Strategy0xDAOStaker is BaseStrategy {
             address(this),
             block.timestamp
         );
-
     }
 
     function protectedTokens()

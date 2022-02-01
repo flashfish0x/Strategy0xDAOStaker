@@ -75,7 +75,7 @@ def whale(accounts, pid):
     if pid == 3:  # WBTC
         whale = accounts.at("0x38aCa5484B8603373Acc6961Ecd57a6a594510A3", force=True)
     elif pid == 5:  # DAI
-        whale = accounts.at("0x8D9AED9882b4953a0c9fa920168fa1FDfA0eBE75", force=True)
+        whale = accounts.at("0x8CFA87aD11e69E071c40D58d2d1a01F862aE01a8", force=True)
     else:
         whale = accounts.at("0xE04C26444d37fE103B9cc8033c99b09D47056f51", force=True)
     yield whale
