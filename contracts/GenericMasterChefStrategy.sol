@@ -439,7 +439,7 @@ contract GenericMasterChefStrategy is BaseStrategy {
         }
         
 
-        router = useSpiritPartOne? spiritRouter: spookyRouter;
+        router = useSpiritPartTwo? spiritRouter: spookyRouter;
         emissionTokenPath[0] = address(wftm);
         emissionTokenPath[1] = address(want);
 
