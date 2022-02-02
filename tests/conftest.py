@@ -10,7 +10,7 @@ def isolation(fn_isolation):
 # this is the pool ID that we are staking for. 0-3, wftm-mim
 @pytest.fixture(scope="module")
 def pid():
-    pid = 2
+    pid = 0
     yield pid
 
 
@@ -217,17 +217,27 @@ def strategy(
     strategist_ms,
     masterchef,
 ):
-    # make sure to include all constructor parameters needed here
-    strategy = strategist.deploy(
-        GenericMasterChefStrategy,
-        vault,
+
+    old_strat = GenericMasterChefStrategy.at('0x2327585bc4E6E505459C61CBF9a358a3558D6600')
+    tx = old_strat.clone0xDAOStaker(vault, strategist, strategist, strategist,
         pid,
         strategy_name,
         masterchef,
         emissionToken,
         wftm,
-        True
-    )
+        True, {'from': strategist})
+    # make sure to include all constructor parameters needed here
+    #strategy = strategist.deploy(
+    #    GenericMasterChefStrategy,
+    #    vault,
+    #    pid,
+    #    strategy_name,
+    #    masterchef,
+    #    emissionToken,
+    #    wftm,
+    #    True
+    #)
+    strategy = GenericMasterChefStrategy.at(tx.return_value)
     strategy.setKeeper(keeper, {"from": gov})
     # set our management fee to zero so it doesn't mess with our profit checking
     vault.setManagementFee(0, {"from": gov})
