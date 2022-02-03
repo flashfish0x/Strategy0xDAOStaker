@@ -15,15 +15,27 @@ def test_live(Contract, accounts, whale, wftm, GenericMasterChefStrategy, chain)
     strategist = accounts.at(old_strat.strategist(), force=True)
 
     wftm_vault = Contract(old_strat.vault())
-    t1 = old_strat.clone0xDAOStaker(wftm_vault, strategist, old_strat.rewards(), old_strat.keeper(),
+    #t1 = old_strat.clone0xDAOStaker(wftm_vault, strategist, old_strat.rewards(), old_strat.keeper(),
+    #    pid,
+    #    "Printer WFTM Masterchef",
+    #    emissionToken,
+    #    masterchef,
+    #    wftm,
+    #    False, {'from': strategist})
+
+    #strategy = GenericMasterChefStrategy.at(t1.return_value)
+
+    strategy = strategist.deploy(
+        GenericMasterChefStrategy,
+        wftm_vault,
         pid,
         "Printer WFTM Masterchef",
         masterchef,
         emissionToken,
         wftm,
-        False, {'from': strategist})
-
-    strategy = GenericMasterChefStrategy.at(t1.return_value)
+        True
+    )
+    strategy.setUseSpiritOne(True, {'from': strategist})
 
     
     gov = accounts.at(wftm_vault.governance(), force=True)
@@ -35,6 +47,7 @@ def test_live(Contract, accounts, whale, wftm, GenericMasterChefStrategy, chain)
     chain.mine(1)
 
     t1 = strategy.harvest({'from': strategist})
+    
     token = Contract(wftm_vault.token())
 
     t1 = old_strat.clone0xDAOStaker(wftm_vault, strategist, old_strat.rewards(), old_strat.keeper(),
@@ -45,6 +58,16 @@ def test_live(Contract, accounts, whale, wftm, GenericMasterChefStrategy, chain)
         wftm,
         False, {'from': strategist})
     strategy2 = GenericMasterChefStrategy.at(t1.return_value)
+    strategy2 = strategist.deploy(
+        GenericMasterChefStrategy,
+        wftm_vault,
+        pid,
+        "Printer WFTM Masterchef",
+        masterchef,
+        emissionToken,
+        wftm,
+        True
+    )
     wftm_vault.migrateStrategy(strategy, strategy2, {'from': gov})
 
     assert emissionToken.balanceOf(strategy2) > 0
@@ -62,6 +85,7 @@ def test_live(Contract, accounts, whale, wftm, GenericMasterChefStrategy, chain)
     print(
         "\nVault total assets after 1 harvest: ", new_assets / (10 ** token.decimals())
     )
+
 
     # Display estimated APR
     print(
