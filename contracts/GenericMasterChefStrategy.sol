@@ -34,19 +34,24 @@ interface ICurveFi {
     ) external;
 }
 
-interface IUniswapV2Router02 {
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
 
-    function getAmountsOut(uint256 amountIn, address[] calldata path)
-        external
-        view
-        returns (uint256[] memory amounts);
+interface IUniswapV2Pair {
+    function swap(
+        uint256,
+        uint256,
+        address to,
+        bytes calldata
+    ) external ;
+
+    function getReserves() external view returns (uint reserve0, uint reserve1, uint256 timestamp);
+}
+
+interface IFactory {
+    function getPair(
+        address, address
+    ) external view returns(address);
+
+    function getReserves() external view returns (uint reserve0, uint reserve1, uint256 timestamp);
 }
 
 interface ChefLike {
@@ -84,10 +89,13 @@ contract GenericMasterChefStrategy is BaseStrategy {
     IERC20 public poolTwoSecondToken;
 
     // swap stuff
-    address internal constant spookyRouter =
-        0xF491e7B69E4244ad4002BC14e878a34207E38c29;
-    address internal constant spiritRouter =
-        0xF491e7B69E4244ad4002BC14e878a34207E38c29;
+    // swap stuff
+    //address internal constant spookyRouter =
+    //    0xF491e7B69E4244ad4002BC14e878a34207E38c29;
+    address internal constant spookyFactory = 0x152eE697f2E276fA89E96742e9bB9aB1F2E61bE3;
+    //address internal constant spiritRouter =
+    //    0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52;
+    address internal constant spritFactory = 0xEF45d134b73241eDa7703fa787148D9C9F4950b0;
     ICurveFi internal constant mimPool =
         ICurveFi(0x2dd7C9371965472E5A5fD28fbE165007c61439E1); // Curve's MIM-USDC-USDT pool
     ICurveFi internal constant daiPool =
@@ -223,11 +231,6 @@ contract GenericMasterChefStrategy is BaseStrategy {
         minHarvestCredit = type(uint256).max;
 
         // add approvals on all tokens
-        
-        emissionToken.approve(spookyRouter, type(uint256).max);
-        poolTwoSecondToken.approve(spookyRouter, type(uint256).max);
-        emissionToken.approve(spiritRouter, type(uint256).max);
-        poolTwoSecondToken.approve(spiritRouter, type(uint256).max);
         want.approve(address(masterchef), type(uint256).max);
     }
 
@@ -393,63 +396,142 @@ contract GenericMasterChefStrategy is BaseStrategy {
         _sell(_amount);
     }
 
+    struct SellRoute{
+        address pair; 
+        address input; 
+        address output; 
+        address to;
+    }
     // sell from reward token to want
     function _sell(uint256 _amount) internal {
 
         if(maxSell > 0){
             _amount = Math.min(maxSell, _amount);
-        }
-        
+        }        
 
-        // sell our emission token for pool two second token
+        //we do all our sells in one go in a chain between pairs
+        //inialise to 3 even if we use less to save on gas
+        SellRoute[] memory sellRoute = new SellRoute[](3);
+
+        // 1! sell our emission token for pool two second token
         address[] memory emissionTokenPath = new address[](2);
         emissionTokenPath[0] = address(emissionToken);
         emissionTokenPath[1] = address(poolTwoSecondToken);
+        uint256 id = 0;
 
-        address router = useSpiritPartOne? spiritRouter: spookyRouter;
+        address factory = useSpiritPartOne? spritFactory: spookyFactory;
+        //we deal directly with the pairs
+        address pair = IFactory(factory).getPair(emissionTokenPath[0], emissionTokenPath[1]);
 
-        IUniswapV2Router02(router).swapExactTokensForTokens(
-            _amount,
-            uint256(0),
-            emissionTokenPath,
-            address(this),
-            block.timestamp
-        );
+        //start off by sending our emission token to the first pair. we only do this once
+        emissionToken.safeTransfer(pair, _amount);
+
+        //first
+        sellRoute[id] =
+                SellRoute(
+                    pair,
+                    emissionTokenPath[0], 
+                    emissionTokenPath[1],
+                    address(0)
+                );
 
         if (address(want) == address(poolTwoSecondToken)) {
+
+            //end with only one step
+            _uniswap_sell_with_fee(sellRoute, id);
             return;
         }
 
-        _amount = poolTwoSecondToken.balanceOf(address(this));
-
+        //if the second token isnt ftm we need to do an etra step
         if(address(poolTwoSecondToken) != address(wftm)){
+            id = id+1;
+            //! 2
             emissionTokenPath[0] = address(poolTwoSecondToken);
             emissionTokenPath[1] = address(wftm);
-            IUniswapV2Router02(spookyRouter).swapExactTokensForTokens(
-                _amount,
-                uint256(0),
-                emissionTokenPath,
-                address(this),
-                block.timestamp
-            );
+            
+            pair = IFactory(spookyFactory).getPair(emissionTokenPath[0], emissionTokenPath[1]);
+            
+
+            //we set the to of the last step to 
+            sellRoute[id-1].to = pair;
+
+            sellRoute[id] =
+                SellRoute(
+                    pair,
+                    emissionTokenPath[0], 
+                    emissionTokenPath[1],
+                    address(0)
+                );
+
             if (address(want) == address(wftm)) {
+                //end. final to is always us. second array
+                sellRoute[id].to = address(this);
+
+                //end with only one step
+                _uniswap_sell_with_fee(sellRoute, id);
                 return;
             }
-            _amount = wftm.balanceOf(address(this));
         }
-        
 
-        router = useSpiritPartTwo? spiritRouter: spookyRouter;
+        id = id+1;
+        //final step is wftm to want
         emissionTokenPath[0] = address(wftm);
         emissionTokenPath[1] = address(want);
+        factory = useSpiritPartTwo? spritFactory: spookyFactory;
+        pair = IFactory(factory).getPair(emissionTokenPath[0], emissionTokenPath[1]);
+        
 
-        IUniswapV2Router02(router).swapExactTokensForTokens(
-            _amount,
-            uint256(0),
-            emissionTokenPath,
-            address(this),
-            block.timestamp
-        );
+        sellRoute[id - 1].to = pair;
+
+
+        sellRoute[id] =
+                SellRoute(
+                    pair,
+                    emissionTokenPath[0], 
+                    emissionTokenPath[1],
+                    address(this)
+                );
+
+
+        //id will be 0-1-2
+        _uniswap_sell_with_fee(sellRoute, id);
+    }
+
+
+    function _uniswap_sell_with_fee(SellRoute[] memory sell, uint256 id) internal{
+        sell[id].to = address(this); //last one is always to us
+        for (uint i; i < id+1; i++) {
+            
+            (address token0,) = _sortTokens(sell[i].input, sell[i].output);
+            IUniswapV2Pair pair = IUniswapV2Pair(sell[i].pair);
+            uint amountInput;
+            uint amountOutput;
+            { // scope to avoid stack too deep errors
+            (uint reserve0, uint reserve1,) = pair.getReserves();
+            (uint reserveInput, uint reserveOutput) = sell[i].input == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+            amountInput = IERC20(sell[i].input).balanceOf(address(pair)).sub(reserveInput);
+            amountOutput = _getAmountOut(amountInput, reserveInput, reserveOutput);
+            }
+            (uint amount0Out, uint amount1Out) = sell[i].input == token0 ? (uint(0), amountOutput) : (amountOutput, uint(0));
+            require(sell[i].to != address(0), "burning tokens");
+            pair.swap(amount0Out, amount1Out, sell[i].to, new bytes(0));
+        }
+    }
+
+
+    //following two functions are taken from uniswap library
+    //https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol
+    function _sortTokens(address tokenA, address tokenB) internal pure returns (address token0, address token1) {
+        (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+    }
+
+    function _getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
+        require(amountIn > 0, 'UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'UniswapV2Library: INSUFFICIENT_LIQUIDITY');
+        uint amountInWithFee = amountIn.mul(997);
+        uint numerator = amountInWithFee.mul(reserveOut);
+        uint denominator = reserveIn.mul(1000).add(amountInWithFee);
+        amountOut = numerator / denominator;
     }
 
     function protectedTokens()
