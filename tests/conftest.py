@@ -10,7 +10,7 @@ def isolation(fn_isolation):
 # this is the pool ID that we are staking for. 0-3, wftm-mim
 @pytest.fixture(scope="module")
 def pid():
-    pid = 1
+    pid = 0
     yield pid
 
 

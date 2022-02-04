@@ -10,8 +10,9 @@ def test_live(Contract, accounts, whale, wftm, GenericMasterChefStrategy, chain)
     pid = 0
     emissionToken = Contract("0xea97c7c1c89d4084e0BFB88284FA90243779da9f")
     
-    old_strat = GenericMasterChefStrategy.at('0x2327585bc4E6E505459C61CBF9a358a3558D6600')
-
+    new_strat = Contract("0x28F2fB6730d5dbeFc4FF9eB375Bbf33BcB36e774")
+    old_strat = Contract("0xeDC42841C4F98e2b1700970041888452D47f8832")
+    oldas = old_strat.estimatedTotalAssets()
     strategist = accounts.at(old_strat.strategist(), force=True)
 
     wftm_vault = Contract(old_strat.vault())
@@ -25,54 +26,60 @@ def test_live(Contract, accounts, whale, wftm, GenericMasterChefStrategy, chain)
 
     #strategy = GenericMasterChefStrategy.at(t1.return_value)
 
-    strategy = strategist.deploy(
-        GenericMasterChefStrategy,
-        wftm_vault,
-        pid,
-        "Printer WFTM Masterchef",
-        masterchef,
-        emissionToken,
-        wftm,
-        True
-    )
-    strategy.setUseSpiritOne(True, {'from': strategist})
+    #strategy = strategist.deploy(
+    #    GenericMasterChefStrategy,
+    #    wftm_vault,
+    #    pid,
+    #    "Printer WFTM Masterchef",
+    #    masterchef,
+    #    emissionToken,
+    #    wftm,
+    #    True
+    #)
+    new_strat.setUseSpiritOne(True, {'from': strategist})
 
     
     gov = accounts.at(wftm_vault.governance(), force=True)
-    wftm_vault.addStrategy(strategy, 100, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    #wftm_vault.addStrategy(strategy, 400, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    wftm_vault.migrateStrategy(old_strat, new_strat, {'from': gov})
     old_assets = wftm_vault.totalAssets()
-    strategy.harvest({'from': strategist})
-    print(strategy.estimatedTotalAssets())
+    print(new_strat.estimatedTotalAssets())
+    assert oldas == new_strat.estimatedTotalAssets()
+    
+    emission = Contract(new_strat.emissionToken())
+    assert emission.balanceOf(new_strat) > 0
+    new_strat.harvest({'from': strategist})
+    strategy = new_strat
     chain.sleep(43200)
     chain.mine(1)
 
-    t1 = strategy.harvest({'from': strategist})
+    #t1 = strategy.harvest({'from': strategist})
     
     token = Contract(wftm_vault.token())
 
-    t1 = old_strat.clone0xDAOStaker(wftm_vault, strategist, old_strat.rewards(), old_strat.keeper(),
-        pid,
-        "Printer WFTM Masterchef",
-        masterchef,
-        emissionToken,
-        wftm,
-        False, {'from': strategist})
-    strategy2 = GenericMasterChefStrategy.at(t1.return_value)
-    strategy2 = strategist.deploy(
-        GenericMasterChefStrategy,
-        wftm_vault,
-        pid,
-        "Printer WFTM Masterchef",
-        masterchef,
-        emissionToken,
-        wftm,
-        True
-    )
-    wftm_vault.migrateStrategy(strategy, strategy2, {'from': gov})
+    #t1 = old_strat.clone0xDAOStaker(wftm_vault, strategist, old_strat.rewards(), old_strat.keeper(),
+    #    pid,
+    #    "Printer WFTM Masterchef",
+    #    masterchef,
+    #    emissionToken,
+    #    wftm,
+    #    False, {'from': strategist})
+    #strategy2 = GenericMasterChefStrategy.at(t1.return_value)
+    #strategy2 = strategist.deploy(
+    #    GenericMasterChefStrategy,
+    #    wftm_vault,
+    #    pid,
+    #    "Printer WFTM Masterchef",
+    #    masterchef,
+    #    emissionToken,
+    #    wftm,
+    #    True
+    #)
+    #wftm_vault.migrateStrategy(strategy, strategy2, {'from': gov})
 
-    assert emissionToken.balanceOf(strategy2) > 0
-    assert strategy2.estimatedTotalAssets() == wftm_vault.strategies(strategy2).dict()["totalDebt"]
-    strategy = strategy2
+    #assert emissionToken.balanceOf(strategy2) > 0
+    #assert strategy2.estimatedTotalAssets() == wftm_vault.strategies(strategy2).dict()["totalDebt"]
+    #strategy = strategy2
 
     chain.sleep(1)
 
