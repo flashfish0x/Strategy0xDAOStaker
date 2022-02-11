@@ -26,7 +26,7 @@ def paper_token():
     return Contract(print_wftm().emissionToken())
 
 def rip_usdc():
-    return Contract("0x2327585bc4E6E505459C61CBF9a358a3558D6600")
+    return Contract("0xf84DD489ad9f55e95593eB266d9D4C1490ece915")
 
 
 
@@ -34,5 +34,7 @@ def rip_wftm():
     return Contract("0x2327585bc4E6E505459C61CBF9a358a3558D6600")
 def rip_weth():
     return Contract("0xE635905E321e404027bC369fF7FD5Ad63C26975f")
-def masterchef():
+def masterchef_rip():
     return Contract(rip_usdc().masterchef())
+def masterchef_rip():
+    return Contract("0x37EE3CeE5CeAf5B86Ff6bC20005d6B90F6e5549a")
